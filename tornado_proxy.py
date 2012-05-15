@@ -4,13 +4,24 @@ PROXY protocol for passing remote address information. For more information
 about this protocol, see
 
     http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
-"""
 
-try:
-    import ssl
-    ssl = ssl
-except ImportError, e:
-    ssl = None
+This code should be compatible with Tornado 1.1 through Tornado 2.2.1. It
+currently only supports IPv4.
+
+Copyright (c) 2012 Yelp, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain
+a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations
+under the License.
+"""
 
 import errno
 import functools
@@ -20,6 +31,7 @@ import socket
 import tornado
 from tornado import iostream
 from tornado.httpserver import HTTPServer, HTTPConnection
+
 
 def _get_proxy(content, after, io_loop):
     """Read PROXY information from the given IOStream, then call the given
@@ -37,7 +49,12 @@ def _get_proxy(content, after, io_loop):
     # bounce this through the IOLoop for dumb reasons
     after((source_address, source_port))
 
+
 class _ProxyWrappedHTTPServerTornadoOne(HTTPServer):
+    """
+    Wrapper for tornado.httpserver.HTTPServer supporting
+    the PROXY protocol and compatible with Tornado 1.x
+    """
     def __init__(self, *args, **kwargs):
         if kwargs.get('ssl_options', None) is not None:
             raise ValueError("Cannot use SSL with ProxyWrappedHTTPServer")
@@ -60,7 +77,12 @@ class _ProxyWrappedHTTPServerTornadoOne(HTTPServer):
             except:
                 logging.error("Error in connection callback", exc_info=True)
 
+
 class _ProxyWrappedHTTPServerTornadoTwo(HTTPServer):
+    """
+    Wrapper for tornado.httpserver.HTTPServer supporting
+    the PROXY protocol and compatible with Tornado 2.x
+    """
     def __init__(self, *args, **kwargs):
         if kwargs.get('ssl_options', None) is not None:
             raise ValueError("Cannot use SSL with ProxyWrappedHTTPServer")
@@ -70,6 +92,7 @@ class _ProxyWrappedHTTPServerTornadoTwo(HTTPServer):
         stream.read_until("\r\n", functools.partial(_get_proxy, after=lambda address: HTTPConnection(stream,
             address, self.request_callback, self.no_keep_alive,
             self.xheaders), io_loop=self.io_loop))
+
 
 if tornado.version_info < (2, 0, 0):
     ProxyWrappedHTTPServer = _ProxyWrappedHTTPServerTornadoOne
